@@ -16,14 +16,14 @@ namespace Notifications
     public static class Doctolib
     {
         [FunctionName("Doctolib")]
-        public async static Task Run([TimerTrigger("0 */5 * * * *", RunOnStartup = true)] TimerInfo myTimer,
+        public async static Task Run([TimerTrigger("0 0 */2 * * *", RunOnStartup = true)] TimerInfo myTimer,
         [Queue("availableslot", Connection = "AzureWebJobsStorage")] IAsyncCollector<AvailableSlot> availableSlotQueue,
         [Queue("checks", Connection = "AzureWebJobsStorage")] IAsyncCollector<AvailableSlot> checksQueue,
         ILogger log)
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
             
-            string searchUrl = "https://www.doctolib.fr/vaccination-covid-19/reims";
+            string searchUrl = "https://www.doctolib.fr/vaccination-covid-19/saint-dizier";
 
             using (HttpClient httpClient = new HttpClient())
             {
