@@ -16,14 +16,14 @@ namespace Notifications
     public static class Doctolib
     {
         [FunctionName("Doctolib")]
-        public async static Task Run([TimerTrigger("0 0 */2 * * *", RunOnStartup = true)] TimerInfo myTimer,
+        public async static Task Run([TimerTrigger("%TimerInterval%")] TimerInfo myTimer,
         [Queue("availableslot", Connection = "AzureWebJobsStorage")] IAsyncCollector<AvailableSlot> availableSlotQueue,
         [Queue("checks", Connection = "AzureWebJobsStorage")] IAsyncCollector<AvailableSlot> checksQueue,
         ILogger log)
         {
-            log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
-            
-            string searchUrl = "https://www.doctolib.fr/vaccination-covid-19/saint-dizier";
+            log.LogInformation($"C# Doctolib Timer trigger function executed at: {DateTime.Now}");
+
+            string searchUrl = "https://www.doctolib.fr/vaccination-covid-19/75015-paris?ref_visit_motive_ids[]=6970&ref_visit_motive_ids[]=7005&force_max_limit=2";
 
             using (HttpClient httpClient = new HttpClient())
             {
@@ -46,6 +46,14 @@ namespace Notifications
                     foreach (HtmlNode node in htmlNodes)
                     {
                         string id = node.Attributes["id"]?.Value;
+                        HtmlNodeCollection htmlLocationNodes = node.SelectNodes("//div[@class='dl-text dl-text-body dl-text-s dl-text-regular']");
+                        string location = "";
+
+                        foreach (HtmlNode locationNode in htmlLocationNodes)
+                        {
+                            location = locationNode.InnerText;
+                            break;
+                        }
 
                         if (id != null)
                         {
@@ -53,7 +61,7 @@ namespace Notifications
                             {
                                 string searchId = id.Replace("search-result-", "");
 
-                                string url = $"https://www.doctolib.fr/search_results/{searchId}.json?limit=6&speciality_id=5494&search_result_format=json";
+                                string url = $"https://www.doctolib.fr/search_results/{searchId}.json?ref_visit_motive_ids%5B%5D=6970&ref_visit_motive_ids%5B%5D=7005&speciality_id=5494&search_result_format=json&force_max_limit=2";
 
                                 var responseSearch = await httpClient.GetAsync(url);
                                 string responseBody = await responseSearch.Content.ReadAsStringAsync();
@@ -62,7 +70,7 @@ namespace Notifications
                                 if (searchResponse.availabilities.Count > 0)
                                 {
                                     AvailableSlot availableSlot = new AvailableSlot();
-                                    availableSlot.name = "A slot is available !";
+                                    availableSlot.name = "A slot is available ! " + location;
                                     availableSlot.url = searchUrl;
                                     await availableSlotQueue.AddAsync(availableSlot);
                                 }
