@@ -46,13 +46,27 @@ namespace Notifications
                     foreach (HtmlNode node in htmlNodes)
                     {
                         string id = node.Attributes["id"]?.Value;
-                        HtmlNodeCollection htmlLocationNodes = node.SelectNodes("//div[@class='dl-text dl-text-body dl-text-s dl-text-regular']");
+                        HtmlNodeCollection htmlLocationNodes = node.SelectNodes(".//div[@class='dl-text dl-text-body dl-text-s dl-text-regular']");
                         string location = "";
 
                         foreach (HtmlNode locationNode in htmlLocationNodes)
                         {
                             location = locationNode.InnerText;
                             break;
+                        }
+                        
+                        HtmlNodeCollection htmlLinkNodes = node.SelectNodes(".//a[@class='dl-search-result-name js-search-result-path']");
+                        string link = "";
+
+                        foreach (HtmlNode linkNode in htmlLinkNodes)
+                        {
+                            link = linkNode.Attributes["href"]?.Value;
+                            if (link != null)
+                            {
+                                link = "https://www.doctolib.fr" + link;
+                                break;
+                            }
+                            
                         }
 
                         if (id != null)
@@ -71,7 +85,7 @@ namespace Notifications
                                 {
                                     AvailableSlot availableSlot = new AvailableSlot();
                                     availableSlot.name = "A slot is available ! " + location;
-                                    availableSlot.url = searchUrl;
+                                    availableSlot.url = link;
                                     await availableSlotQueue.AddAsync(availableSlot);
                                 }
                             }
