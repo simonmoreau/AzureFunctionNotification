@@ -46,6 +46,26 @@ namespace Notifications
                     foreach (HtmlNode node in htmlNodes)
                     {
                         string id = node.Attributes["id"]?.Value;
+
+                        if (id == null)
+                        {
+                            continue;
+                        }
+
+                        string lat = node.Attributes["data-lat"]?.Value;
+                        string lon = node.Attributes["data-lng"]?.Value;
+
+                        if (lat == null || lon == null)
+                        {
+                            continue;
+                        }
+
+                        double distanceInKm = getDistanceFromLatLonInKm(lat, lon);
+
+                        if (distanceInKm > 5)
+                        {
+                            continue;
+                        }
                         HtmlNodeCollection htmlLocationNodes = node.SelectNodes(".//div[@class='dl-text dl-text-body dl-text-s dl-text-regular']");
                         string location = "";
 
@@ -54,7 +74,7 @@ namespace Notifications
                             location = locationNode.InnerText;
                             break;
                         }
-                        
+
                         HtmlNodeCollection htmlLinkNodes = node.SelectNodes(".//a[@class='dl-search-result-name js-search-result-path']");
                         string link = "";
 
@@ -66,30 +86,28 @@ namespace Notifications
                                 link = "https://www.doctolib.fr" + link;
                                 break;
                             }
-                            
                         }
 
-                        if (id != null)
+                        if (id.Contains("search-result-"))
                         {
-                            if (id.Contains("search-result-"))
+                            string searchId = id.Replace("search-result-", "");
+
+                            string url = $"https://www.doctolib.fr/search_results/{searchId}.json?ref_visit_motive_ids%5B%5D=6970&ref_visit_motive_ids%5B%5D=7005&speciality_id=5494&search_result_format=json&force_max_limit=2";
+
+                            var responseSearch = await httpClient.GetAsync(url);
+                            string responseBody = await responseSearch.Content.ReadAsStringAsync();
+                            SearchResponse searchResponse = JsonConvert.DeserializeObject<SearchResponse>(responseBody);
+
+                            if (searchResponse.availabilities.Count > 0)
                             {
-                                string searchId = id.Replace("search-result-", "");
-
-                                string url = $"https://www.doctolib.fr/search_results/{searchId}.json?ref_visit_motive_ids%5B%5D=6970&ref_visit_motive_ids%5B%5D=7005&speciality_id=5494&search_result_format=json&force_max_limit=2";
-
-                                var responseSearch = await httpClient.GetAsync(url);
-                                string responseBody = await responseSearch.Content.ReadAsStringAsync();
-                                SearchResponse searchResponse = JsonConvert.DeserializeObject<SearchResponse>(responseBody);
-
-                                if (searchResponse.availabilities.Count > 0)
-                                {
-                                    AvailableSlot availableSlot = new AvailableSlot();
-                                    availableSlot.name = "A slot is available ! " + location;
-                                    availableSlot.url = link;
-                                    await availableSlotQueue.AddAsync(availableSlot);
-                                }
+                                AvailableSlot availableSlot = new AvailableSlot();
+                                availableSlot.name = "A slot is available ! " + location;
+                                availableSlot.url = link;
+                                await availableSlotQueue.AddAsync(availableSlot);
                             }
                         }
+
+
                     }
                 }
                 catch
@@ -99,9 +117,31 @@ namespace Notifications
                     await checksQueue.AddAsync(availableSlot);
                 }
             }
+        }
 
+        private static double getDistanceFromLatLonInKm(string lat1String, string lon1String)
+        {
+            double lat1 = Convert.ToDouble(lat1String);
+            double lon1 = Convert.ToDouble(lon1String);
 
+            double lat2 = 48.838903;
+            double lon2 = 2.314551;
+            double R = 6371; // Radius of the earth in km
+            double dLat = deg2rad(lat2 - lat1);  // deg2rad below
+            double dLon = deg2rad(lon2 - lon1);
+            double a =
+              Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+              Math.Cos(deg2rad(lat1)) * Math.Cos(deg2rad(lat2)) *
+              Math.Sin(dLon / 2) * Math.Sin(dLon / 2)
+              ;
+            double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            double d = R * c; // Distance in km
+            return d;
+        }
 
+        private static double deg2rad(double deg)
+        {
+            return deg * (Math.PI / 180);
         }
     }
 }
